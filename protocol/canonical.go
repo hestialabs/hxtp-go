@@ -25,7 +25,7 @@ func CanonicalJSON(v any) (string, error) {
 		}
 	}
 
-	return serialize(v)
+	return serialize(v, 0)
 }
 
 // Message defines the fields required for the MCSS v3.0 canonical string.
@@ -41,6 +41,8 @@ type Message struct {
 	Timestamp      int64                  `json:"timestamp"`
 	Nonce          string                 `json:"nonce"`
 	MessageType    string                 `json:"message_type"`
+	Capability     string                 `json:"capability,omitempty"`
+	Action         string                 `json:"action,omitempty"`
 	PayloadHash    string                 `json:"payload_hash"`
 	Params         map[string]interface{} `json:"params,omitempty"`
 }
@@ -59,6 +61,8 @@ func BuildCanonical(msg Message) (string, error) {
 		"timestamp":       msg.Timestamp,
 		"nonce":           msg.Nonce,
 		"message_type":    msg.MessageType,
+		"capability":      msg.Capability,
+		"action":          msg.Action,
 		"payload_hash":    msg.PayloadHash,
 	}
 	if msg.Params != nil {
@@ -68,7 +72,11 @@ func BuildCanonical(msg Message) (string, error) {
 	return CanonicalJSON(m)
 }
 
-func serialize(v interface{}) (string, error) {
+func serialize(v interface{}, depth int) (string, error) {
+	if depth > 10 {
+		return "", fmt.Errorf("CANONICAL_ERROR: Max depth exceeded")
+	}
+
 	if v == nil {
 		return "null", nil
 	}
@@ -106,7 +114,7 @@ func serialize(v interface{}) (string, error) {
 	case []interface{}:
 		var parts []string
 		for _, item := range val {
-			s, err := serialize(item)
+			s, err := serialize(item, depth+1)
 			if err != nil {
 				return "", err
 			}
@@ -124,7 +132,7 @@ func serialize(v interface{}) (string, error) {
 		var parts []string
 		for _, k := range keys {
 			kb, _ := json.Marshal(k)
-			vstr, err := serialize(val[k])
+			vstr, err := serialize(val[k], depth+1)
 			if err != nil {
 				return "", err
 			}
