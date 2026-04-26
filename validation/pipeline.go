@@ -14,6 +14,7 @@ const (
 	TimestampSkewSec   = 60
 	MaxPayloadBytes    = 16384
 	SecretHexLength    = 64
+	NonceTTLSec        = 600
 )
 
 // ValidationStep represents a step in the 7-step pipeline.
@@ -61,11 +62,17 @@ func (v *Validator) ValidateMessage(msg protocol.Message, payload string, secret
 	}
 
 	// 2. Timestamp Freshness
-	age := now - msg.Timestamp
+	ts := msg.Timestamp
+	// Parity with Embedded SDK: handle both seconds and milliseconds
+	if ts > 1000000000000 {
+		ts = ts / 1000
+	}
+
+	age := now - ts
 	if age > MaxMessageAgeSec {
 		return ValidationResult{OK: false, Step: StepTimestamp, Code: "TIMESTAMP_EXPIRED", Reason: "message too old"}
 	}
-	if msg.Timestamp > now+TimestampSkewSec {
+	if ts > now+TimestampSkewSec {
 		return ValidationResult{OK: false, Step: StepTimestamp, Code: "TIMESTAMP_FUTURE", Reason: "message from the future"}
 	}
 
