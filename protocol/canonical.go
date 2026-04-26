@@ -33,6 +33,7 @@ func CanonicalJSON(v any) (string, error) {
 type Message struct {
 	Version        string                 `json:"version"`
 	DeviceId       string                 `json:"device_id"`
+	TenantId       string                 `json:"tenant_id"`
 	ClientId       string                 `json:"client_id"`
 	MessageId      string                 `json:"message_id"`
 	RequestId      string                 `json:"request_id"`
@@ -50,6 +51,7 @@ func BuildCanonical(msg Message) (string, error) {
 	m := map[string]interface{}{
 		"version":         msg.Version,
 		"device_id":       msg.DeviceId,
+		"tenant_id":       msg.TenantId,
 		"client_id":       msg.ClientId,
 		"message_id":      msg.MessageId,
 		"request_id":      msg.RequestId,
