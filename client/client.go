@@ -243,9 +243,9 @@ func (c *Client) ConfirmCommand(deviceId string, dryRunToken string) (map[string
 	return c.request("POST", fmt.Sprintf("/devices/%s/command/confirm", deviceId), map[string]interface{}{"token": dryRunToken})
 }
 
-// SignMessage helper for standalone protocol signing (parity with hxtp-py sign).
-func SignMessage(msg protocol.Message, secretHex string) (string, error) {
-	canonical, err := protocol.BuildCanonical(msg)
+// SignMessage helper for standalone protocol signing (parity with hxtp-py/js sign).
+func SignMessage(msg map[string]interface{}, secretHex string) (string, error) {
+	canonical, err := protocol.CanonicalJSON(msg)
 	if err != nil {
 		return "", err
 	}

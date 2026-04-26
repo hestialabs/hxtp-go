@@ -8,13 +8,14 @@ import (
 )
 
 // FROZEN Protocol Constants
+// Production-Grade Protocol Constants
 const (
-	ProtocolVersion    = "HxTP/3.0"
-	MaxMessageAgeSec   = 300
-	TimestampSkewSec   = 60
+	ProtocolVersion    = "HxTP/1.0"
+	MaxMessageAgeSec   = 30
+	TimestampSkewSec   = 5
 	MaxPayloadBytes    = 16384
 	SecretHexLength    = 64
-	NonceTTLSec        = 600
+	NonceTTLSec        = 60
 )
 
 // ValidationStep represents a step in the 7-step pipeline.
@@ -69,11 +70,13 @@ func (v *Validator) ValidateMessage(msg protocol.Message, payload string, secret
 	}
 
 	age := now - ts
+	// 30s expiration window
 	if age > MaxMessageAgeSec {
-		return ValidationResult{OK: false, Step: StepTimestamp, Code: "TIMESTAMP_EXPIRED", Reason: "message too old"}
+		return ValidationResult{OK: false, Step: StepTimestamp, Code: "TIMESTAMP_EXPIRED", Reason: "message too old (>30s)"}
 	}
-	if ts > now+TimestampSkewSec {
-		return ValidationResult{OK: false, Step: StepTimestamp, Code: "TIMESTAMP_FUTURE", Reason: "message from the future"}
+	// ±5s drift allowance for future-dated messages
+	if age < -TimestampSkewSec {
+		return ValidationResult{OK: false, Step: StepTimestamp, Code: "TIMESTAMP_FUTURE", Reason: "clock drift exceeded (±5s)"}
 	}
 
 	// 3. Payload Size
