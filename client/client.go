@@ -69,7 +69,7 @@ func (c *Client) request(method, path string, body interface{}) (map[string]inte
 // ── Observability ──────────────────────────────────────────────────────────
 
 func (c *Client) GetDeviceState(deviceId string) (map[string]interface{}, error) {
-	return c.request("GET", fmt.Sprintf("/device/%s/state", deviceId), nil)
+	return c.request("GET", fmt.Sprintf("/devices/%s/state", deviceId), nil)
 }
 
 func (c *Client) GetDeviceCapabilities(deviceId string) (map[string]interface{}, error) {
@@ -77,7 +77,7 @@ func (c *Client) GetDeviceCapabilities(deviceId string) (map[string]interface{},
 }
 
 func (c *Client) GetDeviceCommandHistory(deviceId string) (map[string]interface{}, error) {
-	return c.request("GET", fmt.Sprintf("/device/%s/commands", deviceId), nil)
+	return c.request("GET", fmt.Sprintf("/devices/%s/commands", deviceId), nil)
 }
 
 func (c *Client) GetCommandStatus(commandId string) (map[string]interface{}, error) {
@@ -116,15 +116,15 @@ func (c *Client) RegisterDevice(deviceType, homeId string, roomId *string) (map[
 	if roomId != nil {
 		payload["room_id"] = *roomId
 	}
-	return c.request("POST", "/device/register", payload)
+	return c.request("POST", "/devices/register", payload)
 }
 
 func (c *Client) RotateDeviceSecret(deviceId string) (map[string]interface{}, error) {
-	return c.request("POST", fmt.Sprintf("/device/%s/rotate-secret", deviceId), nil)
+	return c.request("POST", fmt.Sprintf("/devices/%s/rotate-secret", deviceId), nil)
 }
 
 func (c *Client) RevokeDevice(deviceId string) (map[string]interface{}, error) {
-	return c.request("POST", fmt.Sprintf("/device/%s/revoke", deviceId), nil)
+	return c.request("POST", fmt.Sprintf("/devices/%s/revoke", deviceId), nil)
 }
 
 // ── Home & Room Management ─────────────────────────────────────────────────
@@ -208,7 +208,7 @@ func (c *Client) SendCommand(deviceId string, action string, params map[string]i
 	if dryRun {
 		payload["dry_run"] = true
 	}
-	return c.request("POST", fmt.Sprintf("/device/%s/command", deviceId), payload)
+	return c.request("POST", fmt.Sprintf("/devices/%s/command", deviceId), payload)
 }
 
 func (c *Client) SendBatchCommand(deviceIds []string, action string, params map[string]interface{}) (map[string]interface{}, error) {
@@ -240,7 +240,7 @@ func (c *Client) SendGroupCommand(groupSlug string, action string, params map[st
 }
 
 func (c *Client) ConfirmCommand(deviceId string, dryRunToken string) (map[string]interface{}, error) {
-	return c.request("POST", fmt.Sprintf("/device/%s/command/confirm", deviceId), map[string]interface{}{"token": dryRunToken})
+	return c.request("POST", fmt.Sprintf("/devices/%s/command/confirm", deviceId), map[string]interface{}{"token": dryRunToken})
 }
 
 // SignMessage helper for standalone protocol signing (parity with hxtp-py sign).
