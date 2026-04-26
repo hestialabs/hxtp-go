@@ -10,7 +10,7 @@ import (
 // FROZEN Protocol Constants
 // Production-Grade Protocol Constants
 const (
-	ProtocolVersion    = "HxTP/1.0"
+	ProtocolVersion    = "HxTP/3.0"
 	MaxMessageAgeSec   = 30
 	TimestampSkewSec   = 5
 	MaxPayloadBytes    = 16384

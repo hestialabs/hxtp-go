@@ -15,13 +15,13 @@ import (
  * - Lexicographical key sorting
  * - Unicode NFC normalization
  * - Numbers converted to strict decimal strings (avoids IEEE-754 divergence)
- * - Domain Separation: Inject "protocol": "hxtp/1.0"
+ * - Domain Separation: Inject "protocol": "hxtp/3.0"
  */
-func CanonicalJSON(v interface{}) (string, error) {
+func CanonicalJSON(v any) (string, error) {
 	// Top-level domain separation
 	if m, ok := v.(map[string]interface{}); ok {
 		if _, exists := m["protocol"]; !exists {
-			m["protocol"] = "hxtp/1.0"
+			m["protocol"] = "hxtp/3.0"
 		}
 	}
 
