@@ -1,6 +1,6 @@
 # HxTP-Go SDK
 
-Official Go implementation of the **HxTP/3.0** (Hestia X-Transfer Protocol) — a bit-perfect, HMAC-SHA256 signed messaging protocol for high-security IoT and hardware mesh networks.
+Official Go SDK of the **HxTP/3.0** — a bit-perfect, HMAC-SHA256 signed messaging protocol for high-security IoT and hardware mesh networks.
 
 ## 🚀 Quick Start
 
