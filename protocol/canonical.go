@@ -11,7 +11,7 @@ import (
 )
 
 /**
- * CanonicalJSON implements the Production Grade deterministic JSON stringifier.
+ * CanonicalJSON implements the deterministic JSON stringifier.
  * - Lexicographical key sorting
  * - Unicode NFC normalization
  * - Numbers converted to strict decimal strings (avoids IEEE-754 divergence)
@@ -47,29 +47,20 @@ type Message struct {
 	Params         map[string]interface{} `json:"params,omitempty"`
 }
 
-// BuildCanonical generates the Production Grade canonical JSON string.
+// BuildCanonical generates the deterministic pipe-separated canonical string (MCSS v3.0).
 func BuildCanonical(msg Message) (string, error) {
-	// Convert struct to map for CanonicalJSON
-	m := map[string]interface{}{
-		"version":         msg.Version,
-		"device_id":       msg.DeviceId,
-		"tenant_id":       msg.TenantId,
-		"client_id":       msg.ClientId,
-		"message_id":      msg.MessageId,
-		"request_id":      msg.RequestId,
-		"sequence_number": msg.SequenceNumber,
-		"timestamp":       msg.Timestamp,
-		"nonce":           msg.Nonce,
-		"message_type":    msg.MessageType,
-		"capability":      msg.Capability,
-		"action":          msg.Action,
-		"payload_hash":    msg.PayloadHash,
-	}
-	if msg.Params != nil {
-		m["params"] = msg.Params
-	}
-
-	return CanonicalJSON(m)
+	return strings.Join([]string{
+		msg.Version,
+		msg.DeviceId,
+		msg.ClientId,
+		msg.MessageId,
+		msg.RequestId,
+		fmt.Sprintf("%d", msg.SequenceNumber),
+		fmt.Sprintf("%d", msg.Timestamp),
+		msg.Nonce,
+		msg.MessageType,
+		msg.PayloadHash,
+	}, "|"), nil
 }
 
 func serialize(v interface{}, depth int) (string, error) {
