@@ -249,11 +249,11 @@ func SignMessage(msg map[string]interface{}, secretHex string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	secret, err := crypto.HexToBytes(secretHex)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return crypto.SignHmacSha256(secret, canonical), nil
 }

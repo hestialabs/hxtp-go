@@ -7,15 +7,14 @@ import (
 	"github.com/hestialabs/hxtp-go/protocol"
 )
 
-// FROZEN Protocol Constants
-// Production-Grade Protocol Constants
+// Protocol Constants
 const (
-	ProtocolVersion    = "HxTP/3.0"
-	MaxMessageAgeSec   = 30
-	TimestampSkewSec   = 5
-	MaxPayloadBytes    = 16384
-	SecretHexLength    = 64
-	NonceTTLSec        = 60
+	ProtocolVersion  = "HxTP/3.0"
+	MaxMessageAgeSec = 30
+	TimestampSkewSec = 5
+	MaxPayloadBytes  = 16384
+	SecretHexLength  = 64
+	NonceTTLSec      = 60
 )
 
 // ValidationStep represents a step in the 7-step pipeline.
