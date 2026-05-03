@@ -11,7 +11,7 @@ import (
 
 func main() {
     // 1. Initialize the Authenticated Client
-    c := client.NewClient("https://api.hestialabs.in/api/v1", "your-neon-jwt")
+    c := client.NewClient("https://api.hestialabs.in/api/v1", "your-hxtp-token")
 
     // 2. Dispatch a command
     resp, err := c.SendCommand("device-uuid", "toggle_light", map[string]interface{}{
@@ -25,7 +25,7 @@ func main() {
 ## 🛠️ Features
 - **MCSS v3.0 Engine:** Full 10-field canonical string builder.
 - **7-Step Validation:** Fail-closed protocol pipeline (Timestamp, Nonce, HMAC, etc.).
-- **Cloud Handshake:** Native support for Neon Auth and the HxTP Safety Gateway (2PC).
+- **Cloud Handshake:** Native support for Firebase Auth and the HxTP Safety Gateway (2PC).
 
 ## 🔐 Security
 This SDK follows the **FROZEN v3.0 protocol spec**. All messages are signed with HMAC-SHA256 using a device-local secret. 
