@@ -28,6 +28,6 @@ func main() {
 - **Cloud Handshake:** Native support for Firebase Auth and the HxTP Safety Gateway (2PC).
 
 ## 🔐 Security
-This SDK follows the **FROZEN v3.0 protocol spec**. All messages are signed with HMAC-SHA256 using a device-local secret. 
+This SDK follows the ** HxTP v3.0 protocol spec**. All messages are signed with HMAC-SHA256 using a device-local secret. 
 
-For security disclosures, contact [security@hestialabs.in](mailto:security@hestialabs.in).
+For security disclosures, contact [contact@hestialabs.in](mailto:contact@hestialabs.in).
