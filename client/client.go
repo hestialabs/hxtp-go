@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,25 +11,38 @@ import (
 
 	"github.com/hestialabs/hxtp-go/crypto"
 	"github.com/hestialabs/hxtp-go/protocol"
+	"github.com/hestialabs/hxtp-go/transport"
 )
 
-// Client is the high-level HxTP SDK client.
+// Client is the high-level protocol-bound HxTP SDK client.
 type Client struct {
-	BaseURL string
-	Token   string // HxTP API Token (HS256)
-	HTTP    *http.Client
+	Config    ClientConfig
+	Transport transport.Transport
+	HTTP      *http.Client // Kept for legacy REST fallback and bootstrap
 }
 
-func NewClient(baseUrl, token string) *Client {
+type ClientConfig struct {
+	BaseURL  string
+	Token    string // HxTP API Token (HS256)
+	DeviceId string
+	ClientId string
+	Secret   string // Hex encoded
+}
+
+func NewClient(config ClientConfig) *Client {
 	return &Client{
-		BaseURL: baseUrl,
-		Token:   token,
-		HTTP:    &http.Client{Timeout: 15 * time.Second},
+		Config: config,
+		HTTP:   &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
+// SetTransport allows switching from REST to native HxTP transports (MQTT/WS).
+func (c *Client) SetTransport(t transport.Transport) {
+	c.Transport = t
+}
+
 func (c *Client) request(method, path string, body interface{}) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s%s", c.BaseURL, path)
+	url := fmt.Sprintf("%s%s", c.Config.BaseURL, path)
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, _ := json.Marshal(body)
@@ -40,7 +54,7 @@ func (c *Client) request(method, path string, body interface{}) (map[string]inte
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("Authorization", "Bearer "+c.Config.Token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -64,6 +78,63 @@ func (c *Client) request(method, path string, body interface{}) (map[string]inte
 	}
 
 	return result, nil
+}
+
+// ── Authority & Signing ───────────────────────────────────────────────────
+
+// SignMessage implements the HxTP/3.1 version-aware signing pipeline.
+// Deterministically chooses between JSON and Pipe-separated canonical forms.
+func SignMessage(msg map[string]interface{}, secretHex string) (string, error) {
+	version := fmt.Sprint(msg["version"])
+	
+	message := protocol.Message{
+		Version:        version,
+		DeviceId:       fmt.Sprint(msg["device_id"]),
+		ClientId:       fmt.Sprint(msg["client_id"]),
+		MessageId:      fmt.Sprint(msg["message_id"]),
+		RequestId:      fmt.Sprint(msg["request_id"]),
+		Nonce:          fmt.Sprint(msg["nonce"]),
+		MessageType:    fmt.Sprint(msg["message_type"]),
+		PayloadHash:    fmt.Sprint(msg["payload_hash"]),
+	}
+
+	if v, ok := msg["sequence_number"].(int64); ok {
+		message.SequenceNumber = v
+	} else if v, ok := msg["sequence_number"].(int); ok {
+		message.SequenceNumber = int64(v)
+	} else if v, ok := msg["sequence_number"].(float64); ok {
+		message.SequenceNumber = int64(v)
+	}
+
+	if v, ok := msg["timestamp"].(int64); ok {
+		message.Timestamp = v
+	} else if v, ok := msg["timestamp"].(int); ok {
+		message.Timestamp = int64(v)
+	} else if v, ok := msg["timestamp"].(float64); ok {
+		message.Timestamp = int64(v)
+	}
+
+	var canonical string
+	var err error
+
+	// Version-aware mode selection
+	if version == "HxTP/3.1" {
+		canonical, err = protocol.BuildCanonical(message)
+	} else {
+		// Fallback to HxTP/3.0 JSON Canonicalization
+		canonical, err = protocol.CanonicalJSON(msg)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	secret, err := crypto.HexToBytes(secretHex)
+	if err != nil {
+		return "", err
+	}
+
+	return crypto.SignHmacSha256(secret, canonical), nil
 }
 
 // ── Observability ──────────────────────────────────────────────────────────
@@ -201,6 +272,36 @@ func (c *Client) GetManifestTypes() (map[string]interface{}, error) {
 // ── Command Dispatch ───────────────────────────────────────────────────────
 
 func (c *Client) SendCommand(deviceId string, action string, params map[string]interface{}, dryRun bool) (map[string]interface{}, error) {
+	// 1. If protocol-native transport is configured, use it
+	if c.Transport != nil && c.Transport.State() == transport.StateConnected {
+		envelope, err := protocol.BuildEnvelope(deviceId, c.Config.ClientId, "command", params, 0) // TODO: track sequence
+		if err != nil {
+			return nil, err
+		}
+
+		sig, err := SignMessage(envelope.ToMap(), c.Config.Secret)
+		if err != nil {
+			return nil, err
+		}
+		envelope.Signature = sig
+
+		payload, _ := json.Marshal(envelope)
+		topic := fmt.Sprintf("hxtp/%s/cmd", deviceId)
+		
+		err = c.Transport.Send(context.Background(), topic, payload)
+		if err != nil {
+			return nil, err
+		}
+
+		return map[string]interface{}{
+			"ok":         true,
+			"message_id": envelope.MessageId,
+			"timestamp":  envelope.Timestamp,
+			"transport":  "native",
+		}, nil
+	}
+
+	// 2. Fallback to REST API
 	payload := map[string]interface{}{
 		"action": action,
 		"params": params,
@@ -241,43 +342,4 @@ func (c *Client) SendGroupCommand(groupSlug string, action string, params map[st
 
 func (c *Client) ConfirmCommand(deviceId string, dryRunToken string) (map[string]interface{}, error) {
 	return c.request("POST", fmt.Sprintf("/devices/%s/command/confirm", deviceId), map[string]interface{}{"token": dryRunToken})
-}
-
-// SignMessage helper for standalone protocol signing (parity with hxtp-py/js sign).
-func SignMessage(msg map[string]interface{}, secretHex string) (string, error) {
-	message := protocol.Message{
-		Version:        fmt.Sprint(msg["version"]),
-		DeviceId:       fmt.Sprint(msg["device_id"]),
-		ClientId:       fmt.Sprint(msg["client_id"]),
-		MessageId:      fmt.Sprint(msg["message_id"]),
-		RequestId:      fmt.Sprint(msg["request_id"]),
-		Nonce:          fmt.Sprint(msg["nonce"]),
-		MessageType:    fmt.Sprint(msg["message_type"]),
-		PayloadHash:    fmt.Sprint(msg["payload_hash"]),
-	}
-	if v, ok := msg["sequence_number"].(int64); ok {
-		message.SequenceNumber = v
-	} else if v, ok := msg["sequence_number"].(int); ok {
-		message.SequenceNumber = int64(v)
-	} else if v, ok := msg["sequence_number"].(float64); ok {
-		message.SequenceNumber = int64(v)
-	}
-	if v, ok := msg["timestamp"].(int64); ok {
-		message.Timestamp = v
-	} else if v, ok := msg["timestamp"].(int); ok {
-		message.Timestamp = int64(v)
-	} else if v, ok := msg["timestamp"].(float64); ok {
-		message.Timestamp = int64(v)
-	}
-	canonical, err := protocol.BuildCanonical(message)
-	if err != nil {
-		return "", err
-	}
-
-	secret, err := crypto.HexToBytes(secretHex)
-	if err != nil {
-		return "", err
-	}
-
-	return crypto.SignHmacSha256(secret, canonical), nil
 }

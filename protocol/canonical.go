@@ -5,9 +5,20 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"golang.org/x/text/unicode/norm"
+)
+
+// CanonicalMode defines the deterministic serialization strategy.
+type CanonicalMode int
+
+const (
+	// ModeJSON uses deterministic JSON (HxTP/3.0 and payload_hash).
+	ModeJSON CanonicalMode = iota
+	// ModePipeV31 uses pipe-separated fields with escape semantics (HxTP/3.1).
+	ModePipeV31
 )
 
 /**
@@ -38,8 +49,17 @@ func CanonicalParamsJSON(v any) (string, error) {
 	return serialize(v, 0)
 }
 
-// Message defines the fields required for the MCSS v3.0 canonical string.
-// Maintained for backward compatibility and type safety.
+// EscapeField applies HxTP/3.1 backslash escaping to a field.
+func EscapeField(s string) string {
+	s = norm.NFC.String(s)
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "|", "\\|")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	return s
+}
+
+// Message defines the fields required for the HxTP canonical string.
 type Message struct {
 	Version        string                 `json:"version"`
 	DeviceId       string                 `json:"device_id"`
@@ -57,9 +77,10 @@ type Message struct {
 	Params         map[string]interface{} `json:"params,omitempty"`
 }
 
-// BuildCanonical generates the deterministic pipe-separated canonical string (MCSS v3.0).
+// BuildCanonical generates the deterministic pipe-separated canonical string (HxTP/3.1).
+// Implements mandatory field escaping and NFC normalization.
 func BuildCanonical(msg Message) (string, error) {
-	return strings.Join([]string{
+	fields := []string{
 		msg.Version,
 		msg.DeviceId,
 		msg.ClientId,
@@ -70,7 +91,13 @@ func BuildCanonical(msg Message) (string, error) {
 		msg.Nonce,
 		msg.MessageType,
 		msg.PayloadHash,
-	}, "|"), nil
+	}
+
+	for i, f := range fields {
+		fields[i] = EscapeField(f)
+	}
+
+	return strings.Join(fields, "|"), nil
 }
 
 func serialize(v interface{}, depth int) (string, error) {
@@ -93,14 +120,18 @@ func serialize(v interface{}, depth int) (string, error) {
 		return fmt.Sprintf("\"%d\"", val), nil
 
 	case float32, float64:
-		f := val.(float64)
+		var f float64
+		if f64, ok := val.(float64); ok {
+			f = f64
+		} else {
+			f = float64(val.(float32))
+		}
+
 		if math.IsNaN(f) || math.IsInf(f, 0) {
 			return "", fmt.Errorf("CANONICAL_ERROR: Non-finite number")
 		}
-		// Bit-perfect cross-platform number strategy: Canonical Decimal String
-		s := fmt.Sprintf("%.20f", f)
-		s = strings.TrimRight(s, "0")
-		s = strings.TrimRight(s, ".")
+		// Bit-perfect cross-platform number strategy: Shortest Decimal String
+		s := strconv.FormatFloat(f, 'f', -1, 64)
 		if s == "" || s == "-0" {
 			s = "0"
 		}
