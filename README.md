@@ -1,6 +1,3 @@
-================================================
-FILE: README.md
-================================================
 # HxTP-Go SDK
 
 Official Go SDK of the **HxTP/3.0** — a bit-perfect, HMAC-SHA256 signed messaging protocol for high-security IoT and hardware mesh networks.
