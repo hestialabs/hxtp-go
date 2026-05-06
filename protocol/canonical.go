@@ -28,6 +28,16 @@ func CanonicalJSON(v any) (string, error) {
 	return serialize(v, 0)
 }
 
+// CanonicalParamsJSON is the payload_hash representation. It intentionally
+// does not inject the protocol discriminator because params are action
+// arguments, not a full protocol envelope.
+func CanonicalParamsJSON(v any) (string, error) {
+	if v == nil {
+		v = map[string]interface{}{}
+	}
+	return serialize(v, 0)
+}
+
 // Message defines the fields required for the MCSS v3.0 canonical string.
 // Maintained for backward compatibility and type safety.
 type Message struct {

@@ -245,7 +245,31 @@ func (c *Client) ConfirmCommand(deviceId string, dryRunToken string) (map[string
 
 // SignMessage helper for standalone protocol signing (parity with hxtp-py/js sign).
 func SignMessage(msg map[string]interface{}, secretHex string) (string, error) {
-	canonical, err := protocol.CanonicalJSON(msg)
+	message := protocol.Message{
+		Version:        fmt.Sprint(msg["version"]),
+		DeviceId:       fmt.Sprint(msg["device_id"]),
+		ClientId:       fmt.Sprint(msg["client_id"]),
+		MessageId:      fmt.Sprint(msg["message_id"]),
+		RequestId:      fmt.Sprint(msg["request_id"]),
+		Nonce:          fmt.Sprint(msg["nonce"]),
+		MessageType:    fmt.Sprint(msg["message_type"]),
+		PayloadHash:    fmt.Sprint(msg["payload_hash"]),
+	}
+	if v, ok := msg["sequence_number"].(int64); ok {
+		message.SequenceNumber = v
+	} else if v, ok := msg["sequence_number"].(int); ok {
+		message.SequenceNumber = int64(v)
+	} else if v, ok := msg["sequence_number"].(float64); ok {
+		message.SequenceNumber = int64(v)
+	}
+	if v, ok := msg["timestamp"].(int64); ok {
+		message.Timestamp = v
+	} else if v, ok := msg["timestamp"].(int); ok {
+		message.Timestamp = int64(v)
+	} else if v, ok := msg["timestamp"].(float64); ok {
+		message.Timestamp = int64(v)
+	}
+	canonical, err := protocol.BuildCanonical(message)
 	if err != nil {
 		return "", err
 	}

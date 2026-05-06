@@ -9,7 +9,8 @@ import (
 
 // Protocol Constants
 const (
-	ProtocolVersion  = "HxTP/3.0"
+	ProtocolVersion  = "HxTP/3.1"
+	LegacyVersion    = "HxTP/3.0"
 	MaxMessageAgeSec = 30
 	TimestampSkewSec = 5
 	MaxPayloadBytes  = 16384
@@ -57,7 +58,7 @@ func (v *Validator) ValidateMessage(msg protocol.Message, payload string, secret
 	now := time.Now().Unix()
 
 	// 1. Version Check
-	if msg.Version != ProtocolVersion {
+	if msg.Version != ProtocolVersion && msg.Version != LegacyVersion {
 		return ValidationResult{OK: false, Step: StepVersion, Code: "VERSION_MISMATCH", Reason: "unsupported protocol version"}
 	}
 
@@ -90,7 +91,11 @@ func (v *Validator) ValidateMessage(msg protocol.Message, payload string, secret
 	v.nonceCache[msg.Nonce] = time.Now()
 
 	// 5. Payload Hash Verification
-	computedHash := crypto.ComputeSha256Hex(payload)
+	paramsCanonical, err := protocol.CanonicalParamsJSON(msg.Params)
+	if err != nil {
+		return ValidationResult{OK: false, Step: StepPayloadHash, Code: "CANONICAL_BUILD_FAILED", Reason: err.Error()}
+	}
+	computedHash := crypto.ComputeSha256Hex(paramsCanonical)
 	if msg.PayloadHash != "" && !crypto.ConstantTimeEqual(msg.PayloadHash, computedHash) {
 		return ValidationResult{OK: false, Step: StepPayloadHash, Code: "HASH_MISMATCH", Reason: "payload hash does not match"}
 	}
