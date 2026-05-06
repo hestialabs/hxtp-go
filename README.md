@@ -1,19 +1,28 @@
 # HxTP-Go SDK
 
-Official Go SDK of the **HxTP/3.0** — a bit-perfect, HMAC-SHA256 signed messaging protocol for high-security IoT and hardware mesh networks.
+Official Go SDK of the **HxTP/3.1** — a bit-perfect, HMAC-SHA256 signed messaging protocol for high-security IoT and hardware mesh networks.
 
 ## 🚀 Quick Start
 
 ```go
 import (
     "github.com/hestialabs/hxtp-go/client"
+    "github.com/hestialabs/hxtp-go/protocol"
 )
 
 func main() {
-    // 1. Initialize the Authenticated Client
-    c := client.NewClient("https://api.hestialabs.in/api/v1", "your-hxtp-token")
+    // 1. Initialize the Protocol-Bound Client
+    c := client.NewClient(client.Config{
+        BaseURL:  "https://api.hestialabs.in/api/v1",
+        Token:    "your-auth-token",
+        ClientID: "unique-client-id",
+        Secret:   "64-char-hex-secret",
+        Version:  protocol.V31, // Mandatory HxTP/3.1
+    })
 
-    // 2. Dispatch a command
+    // 2. Dispatch a command via native MQTT (optional)
+    // c.SetTransport(mqttTransport)
+
     resp, err := c.SendCommand("device-uuid", "toggle_light", map[string]interface{}{
         "power": true,
     })
@@ -23,11 +32,12 @@ func main() {
 ```
 
 ## 🛠️ Features
-- **MCSS v3.0 Engine:** Full 10-field canonical string builder.
+- **HxTP/3.1 Core:** Pipe-separated framing with mandatory backslash escaping.
+- **Bit-Perfect Parity:** Verified against the cross-language compliance suite.
+- **Transport Agnostic:** Pluggable REST, MQTT, and WebSocket layers.
 - **7-Step Validation:** Fail-closed protocol pipeline (Timestamp, Nonce, HMAC, etc.).
-- **Cloud Handshake:** Native support for Firebase Auth and the HxTP Safety Gateway (2PC).
 
 ## 🔐 Security
-This SDK follows the ** HxTP v3.0 protocol spec**. All messages are signed with HMAC-SHA256 using a device-local secret. 
+This SDK follows the **[HxTP v3.1 protocol spec](../../hxtp/sdk/PROTOCOL_SPEC_V31.md)**. All messages are signed with HMAC-SHA256 using a device-local secret and normalized using Unicode NFC.
 
 For security disclosures, contact [contact@hestialabs.in](mailto:contact@hestialabs.in).
