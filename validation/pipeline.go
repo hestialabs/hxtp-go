@@ -53,8 +53,8 @@ func NewValidator() *Validator {
 }
 
 // ValidateMessage executes the FROZEN 7-step pipeline.
-// Supports dual-key fallback for HMAC-SHA256 signature verification.
-func (v *Validator) ValidateMessage(msg protocol.Message, payload string, secretHex string, prevSecretHex string, providedSignature string) ValidationResult {
+// Supports dual-key fallback for Ed25519 signature verification.
+func (v *Validator) ValidateMessage(msg protocol.Message, payload string, cloudPubKeyHex string, prevPubKeyHex string, providedSignature string) ValidationResult {
 	now := time.Now().Unix()
 
 	// 1. Version Check
@@ -106,31 +106,27 @@ func (v *Validator) ValidateMessage(msg protocol.Message, payload string, secret
 	}
 	v.lastSequence = msg.SequenceNumber
 
-	// 7. HMAC-SHA256 Signature Verification (with Dual-Key Fallback)
+	// 7. Ed25519 Signature Verification (with Dual-Key Fallback)
 	canonical, err := protocol.BuildCanonical(msg)
 	if err != nil {
 		return ValidationResult{OK: false, Step: StepSignature, Code: "CANONICAL_BUILD_FAILED", Reason: err.Error()}
 	}
 
-	// Try active secret
-	secret, err := crypto.HexToBytes(secretHex)
-	if err == nil {
-		expectedSignature := crypto.SignHmacSha256(secret, canonical)
-		if crypto.ConstantTimeEqual(expectedSignature, providedSignature) {
+	// Try active public key
+	if cloudPubKeyHex != "" {
+		valid, err := crypto.VerifyEd25519(cloudPubKeyHex, canonical, providedSignature)
+		if err == nil && valid {
 			return ValidationResult{OK: true}
 		}
 	}
 
-	// Try previous secret (rotation window)
-	if prevSecretHex != "" {
-		prevSecret, err := crypto.HexToBytes(prevSecretHex)
-		if err == nil {
-			expectedSignature := crypto.SignHmacSha256(prevSecret, canonical)
-			if crypto.ConstantTimeEqual(expectedSignature, providedSignature) {
-				return ValidationResult{OK: true, Rotated: true}
-			}
+	// Try previous public key (rotation window)
+	if prevPubKeyHex != "" {
+		valid, err := crypto.VerifyEd25519(prevPubKeyHex, canonical, providedSignature)
+		if err == nil && valid {
+			return ValidationResult{OK: true, Rotated: true}
 		}
 	}
 
-	return ValidationResult{OK: false, Step: StepSignature, Code: "SIGNATURE_INVALID", Reason: "signature verification failed"}
+	return ValidationResult{OK: false, Step: StepSignature, Code: "SIGNATURE_INVALID", Reason: "Ed25519 signature verification failed"}
 }

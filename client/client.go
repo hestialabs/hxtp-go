@@ -14,11 +14,37 @@ import (
 	"github.com/hestialabs/hxtp-go/transport"
 )
 
+// LifecycleState represents the device's protocol lifecycle state.
+type LifecycleState int
+
+const (
+	LifecycleIDLE         LifecycleState = iota
+	LifecycleHelloSent
+	LifecycleActive
+	LifecycleDisconnected
+)
+
+func (s LifecycleState) String() string {
+	switch s {
+	case LifecycleIDLE:
+		return "IDLE"
+	case LifecycleHelloSent:
+		return "HELLO_SENT"
+	case LifecycleActive:
+		return "ACTIVE"
+	case LifecycleDisconnected:
+		return "DISCONNECTED"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // Client is the high-level protocol-bound HxTP SDK client.
 type Client struct {
 	Config    ClientConfig
 	Transport transport.Transport
 	HTTP      *http.Client // Kept for legacy REST fallback and bootstrap
+	lifecycle LifecycleState
 }
 
 type ClientConfig struct {
@@ -31,9 +57,15 @@ type ClientConfig struct {
 
 func NewClient(config ClientConfig) *Client {
 	return &Client{
-		Config: config,
-		HTTP:   &http.Client{Timeout: 15 * time.Second},
+		Config:    config,
+		HTTP:      &http.Client{Timeout: 15 * time.Second},
+		lifecycle: LifecycleIDLE,
 	}
+}
+
+// Lifecycle returns the current protocol lifecycle state.
+func (c *Client) Lifecycle() LifecycleState {
+	return c.lifecycle
 }
 
 // SetTransport allows switching from REST to native HxTP transports (MQTT/WS).
@@ -129,12 +161,8 @@ func SignMessage(msg map[string]interface{}, secretHex string) (string, error) {
 		return "", err
 	}
 
-	secret, err := crypto.HexToBytes(secretHex)
-	if err != nil {
-		return "", err
-	}
-
-	return crypto.SignHmacSha256(secret, canonical), nil
+	// Ed25519-only signing (HxTP/3.1)
+	return crypto.SignEd25519(secretHex, canonical)
 }
 
 // ── Observability ──────────────────────────────────────────────────────────
@@ -274,6 +302,9 @@ func (c *Client) GetManifestTypes() (map[string]interface{}, error) {
 func (c *Client) SendCommand(deviceId string, action string, params map[string]interface{}, dryRun bool) (map[string]interface{}, error) {
 	// 1. If protocol-native transport is configured, use it
 	if c.Transport != nil && c.Transport.State() == transport.StateConnected {
+		if c.lifecycle != LifecycleActive {
+			return nil, fmt.Errorf("cannot send command: lifecycle is not ACTIVE (current: %s)", c.lifecycle)
+		}
 		envelope, err := protocol.BuildEnvelope(deviceId, c.Config.ClientId, "command", params, 0) // TODO: track sequence
 		if err != nil {
 			return nil, err

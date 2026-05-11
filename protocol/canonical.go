@@ -83,6 +83,7 @@ func BuildCanonical(msg Message) (string, error) {
 	fields := []string{
 		msg.Version,
 		msg.DeviceId,
+		msg.TenantId,
 		msg.ClientId,
 		msg.MessageId,
 		msg.RequestId,
