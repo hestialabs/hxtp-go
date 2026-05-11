@@ -1,108 +1,96 @@
 name: Build & Release
 
 on:
-  push:
-    tags: ["v*"]
-    paths:
-      - "**.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/release.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "**.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/release.yml"
+    push:
+        tags: ["v*"]
+        paths:
+            - "**.go"
+            - "go.mod"
+            - "go.sum"
+            - ".github/workflows/release.yml"
+    pull_request:
+        branches: [main]
+        paths:
+            - "**.go"
+            - "go.mod"
+            - "go.sum"
+            - ".github/workflows/release.yml"
 
 jobs:
-  # ── CI: Vet, Lint, Test ─────────────────────────────────────────
-  ci:
-    name: CI — Go ${{ matrix.go-version }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        go-version: ["1.23", "1.24"]
-    steps:
-      - name: Checkout repository
-       uses: actions/checkout@v4
+    ci:
+        name: CI - Go ${{ matrix.go-version }}
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                go-version: ["1.23", "1.24"]
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up Go ${{ matrix.go-version }}
+              uses: actions/setup-go@v5
+              with:
+                  go-version: ${{ matrix.go-version }}
+            - name: Download dependencies
+              run: go mod download
+            - name: Vet
+              run: go vet ./...
+            - name: Test
+              run: go test ./... -v -count=1
 
-      - name: Set up Go ${{ matrix.go-version }}
-       uses: actions/setup-go@v5
-       with:
-         go-version: ${{ matrix.go-version }}
+    release:
+        name: Release
+        needs: ci
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+            - name: Extract version from tag
+              id: version
+              run: |
+                  TAG="${{ github.ref }}"
+                  VERSION="${TAG#refs/tags/v}"
+                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+                  echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+                  echo "Detected: hxtp-go v$VERSION"
+            - name: Generate changelog
+              id: changelog
+              run: |
+                  PREV_TAG=$(git tag --sort=-creatordate | head -2 | tail -1 || echo "")
+                  if [ -z "$PREV_TAG" ]; then
+                      NOTES=$(git log --oneline --no-decorate "${{ github.ref_name }}" 2>/dev/null | head -50)
+                  else
+                      NOTES=$(git log --oneline --no-decorate "$PREV_TAG..${{ github.ref_name }}" 2>/dev/null | head -50)
+                  fi
+                  EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+                  echo "notes<<$EOF" >> "$GITHUB_OUTPUT"
+                  echo "$NOTES" >> "$GITHUB_OUTPUT"
+                  echo "$EOF" >> "$GITHUB_OUTPUT"
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: go-v${{ steps.version.outputs.version }}
+                  name: "hxtp-go v${{ steps.version.outputs.version }}"
+                  body: |
+                      ## hxtp-go v${{ steps.version.outputs.version }}
 
-      - name: Download dependencies
-       run: go mod download
+                      **Module:** `github.com/hestialabs/hxtp-go`
 
-      - name: Vet
-       run: go vet ./...
+                      ### Installation
+                      ```go
+                      go get github.com/hestialabs/hxtp-go@v${{ steps.version.outputs.version }}
+                      ```
 
-      - name: Test
-       run: go test ./... -v -count=1
+                      ### Resources
+                      - [Go SDK Documentation](https://pkg.go.dev/github.com/hestialabs/hxtp-go)
 
-  # ── Create GitHub Release ────────────────────────────────────────
-  release:
-    name: Release
-    needs: ci
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-       uses: actions/checkout@v4
-       with:
-         fetch-depth: 0
-
-      - name: Set up Go
-       uses: actions/setup-go@v5
-       with:
-         go-version: "1.24"
-
-      - name: Extract version from tag
-       id: version
-       run: |
-         TAG="${{ github.ref }}"
-         VERSION="${TAG#refs/tags/v}"
-         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-         echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-         echo "Detected: hxtp-go v$VERSION"
-
-      - name: Generate changelog
-       id: changelog
-       run: |
-         PREV_TAG=$(git tag --sort=-creatordate | head -2 | tail -1 || echo "")
-         if [ -z "$PREV_TAG" ]; then
-           NOTES=$(git log --oneline --no-decorate "${{ github.ref_name }}" 2>/dev/null | head -50)
-         else
-           NOTES=$(git log --oneline --no-decorate "$PREV_TAG..${{ github.ref_name }}" 2>/dev/null | head -50)
-         fi
-         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-         echo "notes<<$EOF" >> "$GITHUB_OUTPUT"
-         echo "$NOTES" >> "$GITHUB_OUTPUT"
-         echo "$EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
-       uses: softprops/action-gh-release@v2
-       with:
-         tag_name: go-v${{ steps.version.outputs.version }}
-         name: "hxtp-go v${{ steps.version.outputs.version }}"
-         body: |
-           ## hxtp-go v${{ steps.version.outputs.version }}
-
-           **Module:**`github.com/hestialabs/hxtp-go`
-
-           ### Installation
-           ```go
-           go get github.com/hestialabs/hxtp-go@v${{ steps.version.outputs.version }}
-           ```
-
-           ### Resources
-           - [Go SDK Documentation](https://pkg.go.dev/github.com/hestialabs/hxtp-go)
-
-           ### Changes
-           ${{ steps.changelog.outputs.notes }}
-         make_latest: true
+                      ### Changes
+                      ${{ steps.changelog.outputs.notes }}
+                  make_latest: true
