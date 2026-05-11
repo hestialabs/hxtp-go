@@ -1,6 +1,6 @@
 # HxTP-Go SDK
 
-Official Go SDK of the **HxTP/3.1** — a bit-perfect, Ed25519-signed messaging protocol for high-security IoT and hardware mesh networks.
+Official Go SDK of the **HxTP/3.1**— a bit-perfect, Ed25519-signed messaging protocol for high-security IoT and hardware mesh networks.
 
 ## Quick Start
 
@@ -32,10 +32,10 @@ func main() {
 ```
 
 ## Features
-- **HxTP/3.1 Core:** Pipe-separated framing with mandatory backslash escaping.
-- **Bit-Perfect Parity:** Verified against the cross-language compliance suite.
-- **Transport Agnostic:** Pluggable REST, MQTT, and WebSocket layers.
-- **7-Step Validation:** Fail-closed protocol pipeline (Timestamp, Nonce, Ed25519 signature, etc.).
+- **HxTP/3.1 Core:**Pipe-separated framing with mandatory backslash escaping.
+- **Bit-Perfect Parity:**Verified against the cross-language compliance suite.
+- **Transport Agnostic:**Pluggable REST, MQTT, and WebSocket layers.
+- **7-Step Validation:**Fail-closed protocol pipeline (Timestamp, Nonce, Ed25519 signature, etc.).
 
 ## Security
 This SDK follows the **[HxTP v3.1 protocol spec](../../hxtp/sdk/PROTOCOL_SPEC_V31.md)**. All messages are signed with Ed25519 using the device's private key and normalized using Unicode NFC.

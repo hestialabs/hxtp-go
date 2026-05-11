@@ -93,7 +93,7 @@ jobs:
          body: |
            ## hxtp-go v${{ steps.version.outputs.version }}
 
-           **Module:** `github.com/hestialabs/hxtp-go`
+           **Module:**`github.com/hestialabs/hxtp-go`
 
            ### Installation
            ```go
