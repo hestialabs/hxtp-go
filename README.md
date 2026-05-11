@@ -1,6 +1,6 @@
 # HxTP-Go SDK
 
-Official Go SDK of the **HxTP/3.1** — a bit-perfect, HMAC-SHA256 signed messaging protocol for high-security IoT and hardware mesh networks.
+Official Go SDK of the **HxTP/3.1** — a bit-perfect, Ed25519-signed messaging protocol for high-security IoT and hardware mesh networks.
 
 ## 🚀 Quick Start
 
@@ -16,7 +16,7 @@ func main() {
         BaseURL:  "https://api.hestialabs.in/api/v1",
         Token:    "your-auth-token",
         ClientID: "unique-client-id",
-        Secret:   "64-char-hex-secret",
+        Secret:   "64-char-hex-private-key",
         Version:  protocol.V31, // Mandatory HxTP/3.1
     })
 
@@ -35,9 +35,9 @@ func main() {
 - **HxTP/3.1 Core:** Pipe-separated framing with mandatory backslash escaping.
 - **Bit-Perfect Parity:** Verified against the cross-language compliance suite.
 - **Transport Agnostic:** Pluggable REST, MQTT, and WebSocket layers.
-- **7-Step Validation:** Fail-closed protocol pipeline (Timestamp, Nonce, HMAC, etc.).
+- **7-Step Validation:** Fail-closed protocol pipeline (Timestamp, Nonce, Ed25519 signature, etc.).
 
 ## 🔐 Security
-This SDK follows the **[HxTP v3.1 protocol spec](../../hxtp/sdk/PROTOCOL_SPEC_V31.md)**. All messages are signed with HMAC-SHA256 using a device-local secret and normalized using Unicode NFC.
+This SDK follows the **[HxTP v3.1 protocol spec](../../hxtp/sdk/PROTOCOL_SPEC_V31.md)**. All messages are signed with Ed25519 using the device's private key and normalized using Unicode NFC.
 
 For security disclosures, contact [contact@hestialabs.in](mailto:contact@hestialabs.in).
